@@ -8,3 +8,7 @@ python run_reddiff_gp.py --config-name=gp_run
 ```
 python run_reddiff_gp.py --config-name=gp_run algo.repeat=1 algo.obs_weight=0.0 dataset.index=0 dataset.list=False
 ```
+
+```
+python run_reddiff_gp.py --config-name=gp_run algo.optim=Adam algo.repeat=1 algo.obs_weight=1.0 dataset.index=1048 dataset.list=False
+```
