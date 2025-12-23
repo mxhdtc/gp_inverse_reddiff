@@ -1,0 +1,19 @@
+
+n_chains: 16
+n_mcmc_steps: 32
+n_is_samples: 128
+
+
+name: "reddiff_vvgp"
+deg: "deno"
+awd: True
+cond_awd: False
+obs_weight: 1.0
+grad_term_weight: 0.25
+denoise_term_weight: "linear"    #"linear", "sqrt", "log", "square", "trunc_linear", "const", "power2over3", "log_sigmoid", "linear_reverse", "linear_reverse_truncate", "linear_reverse_decay", "exponential_decay", "linear_decay", "cosine_decay"
+decay_rate: 0.9
+sigma_y: 0.0
+eta: 0.0
+lr: 0.1
+sigma_x0: 0.001
+delay_schedule: 200
