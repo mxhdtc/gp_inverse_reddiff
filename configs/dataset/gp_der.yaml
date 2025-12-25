@@ -1,0 +1,7 @@
+# Dataset configuration for GP inverse problems
+# Dataset files are in project_root/data/datasets/
+root: "${hydra:runtime.cwd}/data/datasets"
+name: "res-scale-log-V9"
+index: 0
+list: True
+columns: [3, 8, 9, 12]

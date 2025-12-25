@@ -1,0 +1,6 @@
+# GP forward model configuration
+_target_: src.reddiff_gp.forward_model.GPPredictionModel
+# Model file is in project_root/data/models/
+model_path: "${hydra:runtime.cwd}/data/models/dkl_gp_models_res-scale-log-V9.pth"
+inducing_dim: 8
+grid_bounds: [-1.0, 1.0]

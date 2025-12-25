@@ -6,6 +6,10 @@ python run_reddiff_gp.py --config-name=gp_run
 
 ## Quick Run GP Inverse Problem with default configuration
 ```
+python scripts/run_demo.py --config-name=ddrmpp algo.repeat=1 algo.obs_weight=1.0
+ dataset.index=1 dataset.list=False
+```
+```
 python run_reddiff_gp.py --config-name=gp_run algo.repeat=1 algo.obs_weight=0.0 dataset.index=0 dataset.list=False
 ```
 

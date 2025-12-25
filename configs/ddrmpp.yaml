@@ -1,0 +1,46 @@
+# Main configuration for RED-diff GP demo
+defaults:
+  - exp: default
+  - diffusion: const1000
+  - algo: reddiff_vvgp
+  - dataset: gp_der
+  - model: gp_model
+  - _self_
+
+# Experiment configuration
+exp:
+  overwrite: False
+  name: "gp_demo"
+  smoke_test: 0        # quick test with 1 sample
+  seed: 42
+  root: "outputs"
+  samples_root: "samples"
+  logfreq: 10
+  save_evolution: False
+  save_ori: False
+  save_deg: False
+
+# Algorithm configuration (overrides algo/reddiff_vvgp.yaml)
+algo:
+  lr: 0.1
+  optim: "SGD"
+  grad_term_weight: 0.25
+  obs_weight: 1.0
+  sigma_x0: 0.001
+  n_chains: 32
+  n_mcmc_steps: 32
+  n_is_samples: 128
+  batch_size: 10
+  denoise_term_weight: "linear"
+  delay_schedule: 500
+  repeat: 1
+  awd: True
+  cond_awd: False
+  decay_rate: 0.9
+  sigma_y: 0.0
+  eta: 0.0
+
+# Diffusion configuration (overrides diffusion/const1000.yaml)
+diffusion:
+  num_diffusion_timesteps: 1500
+  # schedule: "const"

@@ -13,6 +13,8 @@ from ..utils import  (
     heuristics_step_size,
     heuristics_step_size_vectorized
 )
+from ..utils.diffusion import Diffusion
+
 
 
 
@@ -287,4 +289,16 @@ class  ScoreEstimator(nn.Module):
         return -(x - alpha_t * ys_langevin.mean(dim=0)) / (1. - torch.square(alpha_t)), step_size
 
 
+class ReverseDiffusionModel:
+    def __init__(self, model: ScoreEstimator, diffusion: Diffusion, cfg: DictConfig):
+        self.model = model
+        self.diffusion = diffusion
+        self.cfg = cfg
+    
+    def __call__(self, xt, y, alpha_t):
+        # Returns both the noise value (score function scaled) and the predicted x0.
+        # alpha_t = self.diffusion.alpha(t).view(-1, 1)
+        et = self.model(xt, y, alpha_t)
+        x0_pred = (xt - et * (1 - alpha_t).sqrt()) / alpha_t.sqrt()
+        return et, x0_pred
 

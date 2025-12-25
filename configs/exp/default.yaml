@@ -1,0 +1,16 @@
+# Experiment configuration defaults
+# Outputs go to project_root/outputs
+root: "${hydra:runtime.cwd}/outputs"
+save_evolution: False
+ckpt_root: "ckpts"
+samples_root: "samples"
+overwrite: False
+num_steps: 1500
+start_step: 1500
+end_step: 0
+smoke_test: 0
+logfreq: 10
+save_ori: False
+save_deg: False
+seed: 42
+name: "gp_experiment"

@@ -6,7 +6,7 @@ from omegaconf import DictConfig
 
 # from models.classifier_guidance_model import ClassifierGuidanceModel
 # from utils.degredations import build_degredation_model
-from forward_model import GPPredictionModel
+from .forward_model import GPPredictionModel
 from .ddim import DDIM
 
 import os

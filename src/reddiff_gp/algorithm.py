@@ -6,7 +6,7 @@ from omegaconf import DictConfig
 
 # from models.classifier_guidance_model import ClassifierGuidanceModel
 # from utils.degredations import build_degredation_model
-from forward_model import GPPredictionModel
+from .forward_model import GPPredictionModel
 from .ddim import DDIM
 
 import os
@@ -17,18 +17,24 @@ from tqdm import tqdm
 
 # score_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'slips')
 # sys.path.append("/home/xim22003/Diffusion_CLM/slips/slips")
-sys.path.insert(0, "/home/xim22003/Diffusion_CLM/slips")
-sys.path.insert(1, "/home/xim22003/Diffusion_CLM/sde_sampler/sde_sampler")
+# sys.path.insert(0, "/home/xim22003/Diffusion_CLM/slips")
+# sys.path.insert(1, "/home/xim22003/Diffusion_CLM/sde_sampler/sde_sampler")
 # sys.path.insert(0, score_path)
-from score_estimator import ScoreEstimator
+from .score_estimator import ScoreEstimator
+# from ..reddiff_gp import ReverseDiffusionModel
+from ..utils.diffusion import Diffusion
+from .score_estimator import ReverseDiffusionModel
+ 
 
 # sys.path.append("sde_sampler/sde_sampler/distr")
 # from distr.VVGP import GPPredictionModel
 
 
 
+    
+
 class REDDIFF_VVGP(DDIM):
-    def __init__(self, model: ScoreEstimator, forward_model: GPPredictionModel, cfg: DictConfig):
+    def __init__(self, model: ReverseDiffusionModel, forward_model: GPPredictionModel, cfg: DictConfig):
         self.model = model
         self.diffusion = model.diffusion
         self.forward_model = forward_model
@@ -46,10 +52,14 @@ class REDDIFF_VVGP(DDIM):
         self.columns = cfg.dataset.columns
         self.sigma_x0 = cfg.algo.sigma_x0
         self.decay_rate = getattr(cfg.algo, 'decay_rate', 0.9)
+        # if self.cfg.algo.batch_size > 1:
+        #             self.lr *= self.cfg.algo.batch_size
         
         print('self.lr', self.lr)
         print('self.sigma_x0', self.sigma_x0)
         print('self.denoise_term_weight', cfg.algo.denoise_term_weight)
+        print('self.batch_size', cfg.algo.batch_size)
+
 
 
 
@@ -253,6 +263,7 @@ class REDDIFF_VVGP(DDIM):
 
 
                 w_t = self.grad_term_weight*snr_inv   #0.25
+                
                 v_t = self.obs_weight
 
                 loss = w_t*loss_noise + v_t*loss_obs
@@ -275,7 +286,7 @@ class REDDIFF_VVGP(DDIM):
                 rmse_results.append(loss_obs_scalar)
             
 
-        return x0_pred, mu, mu_list, mse_results, rmse_results, cos_sim_results
+        return x0_pred, mu, mu_list, mse_results, rmse_results
 
         
     def initialize(self, x, ts, **kwargs):

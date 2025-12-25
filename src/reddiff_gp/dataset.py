@@ -25,7 +25,7 @@ class GPDataset(Dataset):
 			self.original_indices = [idx]
 		elif isinstance(idx, slice):
 			# Load full array to know size
-			dataset_dir = os.path.join(root, f"./results/datasets_{name}")
+			dataset_dir = root  # Files are directly in root directory
 			full_array = np.load(os.path.join(dataset_dir, f"test_inputs_{name}.npy"))
 			self.original_indices = list(range(len(full_array)))[idx]
 		elif isinstance(idx, list):
@@ -33,7 +33,8 @@ class GPDataset(Dataset):
 		else:
 			raise TypeError(f"idx must be int, slice, or list, got {type(idx)}")
 
-		dataset_dir = os.path.join(root, f"./results/datasets_{name}")
+		# dataset_dir = os.path.join(root, f"./results/datasets_{name}")
+		dataset_dir = root
 		# Use regular indexing (works with list of indices)
 		self.true_inputs = np.load(os.path.join(dataset_dir, f"test_inputs_{name}.npy"))[self.original_indices]
 		self.obv_targets = np.load(os.path.join(dataset_dir, f"test_targets_{name}.npy"))[self.original_indices]

@@ -1,0 +1,5 @@
+# Constant beta schedule diffusion
+beta_schedule: const
+beta_start: 0.01
+beta_end: 0.01
+num_diffusion_timesteps: 1000
