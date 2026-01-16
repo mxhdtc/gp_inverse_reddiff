@@ -4,7 +4,12 @@
 
 ![Animated GIF](parameter_convergence.gif)
 ![RMSE](parameter_RMSE.png)
+**Figure 2: Convergence of critical parameters during Optimization/sampling.**
 
+
+*  **Y-axis (RMSE):** Displays the Root Mean Square Error of the critical parameters compared to the ground truth.
+
+**Interpretation:** The sharp decline in RMSE during the early steps indicates the effectiveness of the burn-in phase, followed by stabilization as the chain converges to the posterior.
 ### Run GP Inverse Model
 ```
 python run_reddiff_gp.py --config-name=gp_run
