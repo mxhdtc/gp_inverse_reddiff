@@ -3,6 +3,7 @@
 ## Disription
 
 ![Animated GIF](parameter_convergence.gif)
+![RMSE](parameter_RMSE.png)
 
 ### Run GP Inverse Model
 ```
