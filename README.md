@@ -5,7 +5,7 @@ Using  Diffusion Score Matching Variational Inference**. It contains an overview
 
 
 ## Description
-In this paper we solve inverse problems in power systems involves inferring model parameters from observed time-series data. We address this challenge for inverter-interfaced solar PV systems, where the observations active/reactive power trajectories. A Gaussian Process Regression forward surrogate is first trained to map parameters to outputs. For the inverse problem, we introduce a Gaussian-kernel-mollified prior and a variational objective that replaces intractable Kullback-Leibler divergence term by score matching loss. An Unjusted Langiven sampling method is used to obtain the estimation of score funtion. Numerical simulation shows that our proposed method achieves flatter, more robust minima than Maximum a Posteriori and Hamiltonian Monte Carlo, with similiar error on synthetic PV data.
+In this paper we solve inverse problems in power systems involve inferring model parameters from observed time-series data. We address this challenge for inverter-interfaced solar PV systems, where the observations are active/reactive power trajectories. A Gaussian Process Regression forward surrogate is first trained to map parameters to outputs. For the inverse problem, we introduce a Gaussian-kernel-mollified prior and a variational objective that replaces intractable Kullback-Leibler divergence term by score matching loss. An Unjusted Langiven sampling method is used to obtain the estimation of score funtion. Numerical simulation shows that our proposed method achieves flatter, more robust minima than Maximum a Posteriori and Hamiltonian Monte Carlo, with similiar error on synthetic PV data.
 
 ![Animated GIF](parameter_convergence.gif)
 
