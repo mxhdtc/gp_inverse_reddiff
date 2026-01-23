@@ -16,6 +16,9 @@ from ..utils import  (
 from ..utils.diffusion import Diffusion
 
 
+
+
+
 def ula_mcmc(x0, step_size, score, n_steps, n_warmup_steps=0, return_intermediates=False,
              return_intermediates_gradients=False):
     """Perform multiple steps of the ULA algorithm
@@ -148,10 +151,13 @@ def mala_mcmc(
 class  ScoreEstimator(nn.Module):
     def __init__(self, target_log_prob, target_log_prob_and_grad, n_chains:int =16, 
                  n_mcmc_steps: int = 32, n_is_samples: int = 128) -> None:
+        # self.alpha_t = alpha_t
+        # self.T = T
         super(ScoreEstimator, self).__init__()
         self.T = -math.log(0.95)
         self.target_log_prob = target_log_prob
         self.target_log_prob_and_grad = target_log_prob_and_grad
+        # self.diffusion = diffusion # Define the noise schedule of the diffusion model
         self.n_chains = n_chains
         self.n_mcmc_steps = n_mcmc_steps
         self.n_is_samples = n_is_samples
@@ -159,23 +165,38 @@ class  ScoreEstimator(nn.Module):
         # Example: Initialize RED-diff diffusion model if needed
         # self.diffusion = Diffusion(beta_schedule="linear", num_diffusion_timesteps=1000)
     
-    def forward(self, xt, y, alpha_t, variance) -> torch.Tensor:
+    def forward(self, xt, y, alpha_t) -> torch.Tensor:
         con_target_log_prob = self.target_log_prob(y)
         con_target_log_prob_and_grad = self.target_log_prob_and_grad(y)
         step_size = torch.tensor(1.0 - math.exp(-2.0 * self.T)) / 2.0
-        et, _ = self.score_estimation(alpha_t=alpha_t, variance=variance, x=xt, 
+        # step_size = torch.tensor(1. - math.exp(-2. * T)) / 2.
+        et, _ = self.score_estimation(alpha_t=alpha_t, x=xt, 
                                    step_size=step_size, n_is_samples=self.n_is_samples, n_mcmc_steps=self.n_mcmc_steps, n_chains=self.n_chains,
                                    target_log_prob=con_target_log_prob, target_log_prob_and_grad=con_target_log_prob_and_grad,)
         return et
 
-    def posterior_log_prob_and_grad(self, y, xt, alpha_t, variance, target_log_prob_and_grad):
+    # def __call__(self, xt, y, t) -> torch.Tensor:
+    #     # y: the observation trajectory
+    #     # Returns both the estimated score function (noise value) and the predicted x_0
+    #     alpha_t = self.diffusion.alpha_t(t).view(-1, 1)
+    #     con_target_log_prob = self.target_log_prob(y)
+    #     con_target_log_prob_and_grad = self.target_log_prob_and_grad(y)
+    #     step_size = torch.tensor(1.0 - torch.exp(-2.0 * self.T)) / 2.0
+    #     et = self.score_estimation(t=t, T=self.T, x=xt, 
+    #                                step_size=step_size, n_is_samples=self.n_is_samples, n_mcmc_steps=self.n_mcmc_steps, n_chains=self.n_chains,
+    #                                target_log_prob=con_target_log_prob, target_log_prob_and_grad=con_target_log_prob_and_grad,)
+    #     x0_pred = (xt - et * (1 - alpha_t).sqrt()) / alpha_t.sqrt()
+    #     return et, x0_pred
+          
+    def posterior_log_prob_and_grad(self, y, xt, alpha_t, target_log_prob_and_grad):
         """Compute the posterior distribution of RDMC and its gradient
 
-            q_t(y|x_t) = pi(x_t) N(x_t;alpha_t*y, [1 - alpha_t^2] I)
+            q_t(y|x) = pi(x) N(exp(T-t)*x, [(1 - exp(-2*(T-t))) / exp(-2*(T-t))] I)
+            q_t(y|x) = pi(x) N(alpha_t*x, [1 - alpha_t^2] I)
         Args:
             t (torch.Tensor): Current time
             y (torch.Tensor of shape (batch_size, dim)): Evaluation point
-            x_t (torch.Tensor of shape (batch_size, dim)): Conditioning point
+            x (torch.Tensor of shape (batch_size, dim)): Conditioning point
             T (torch.Tensor): Limit time
             target_log_prob_and_grad (function): Log-likelihood of the target and its gradient
 
@@ -183,19 +204,23 @@ class  ScoreEstimator(nn.Module):
             log_prob (torch.Tensor of shape (batch_size,)): Log-likelihood of the posterior
             grad (torch.Tensor of shape (batch_size, dim)): Score of the posterior
         """
+        # print(xt.size(), y.size(), alpha_t.size())
         # Evaluate the target
-        target_log_prob, target_grad = target_log_prob_and_grad(y)
-
+        target_log_prob, target_grad = target_log_prob_and_grad(xt)
         # Compute the log_prob
         log_prob = target_log_prob
-        log_prob -= 0.5 * torch.sum(torch.square(xt - alpha_t * y), dim=-1, keepdim=True) / variance 
+        # print((torch.sum(torch.square(xt - alpha_t * y), dim=-1) / (1. - torch.square(alpha_t))).size())
+        log_prob -= 0.5 * torch.sum(torch.square(xt - alpha_t * y), dim=-1, keepdim=True) / (1. - torch.square(alpha_t))
+        log_prob = log_prob.view(-1)
+        # log_prob -= 0.5 * torch.sum(torch.square(xt - torch.exp(-(T - t)) * y), dim=-1) / (1. - torch.exp(-2. * (T - t)))
         # Compute the gradient
         grad = target_grad
-        grad += alpha_t * (xt - alpha_t * y) / variance
+        grad += alpha_t * (xt - alpha_t * y) / (1. - torch.square(alpha_t))
+        # grad += torch.exp(-t) * (torch.exp(-t) * y - xt) / (1. - torch.exp(-2. * t))
         # Return everything
         return log_prob, grad
     
-    def posterior_importance_sampling(self, n_chains, x, alpha_t, variance, target_log_prob, n_mc_samples=128):
+    def posterior_importance_sampling(self, n_chains, x, alpha_t, target_log_prob, n_mc_samples=128):
         """Sample the importance distribution associated with the posterior of RDMC
         ***Fix the issue that the importance weights does not include the proposal log-prob ***
         Args:
@@ -211,7 +236,7 @@ class  ScoreEstimator(nn.Module):
         """
 
         # Compute the variance and the mean
-        # variance = (1. - torch.square(alpha_t))
+        variance = (1. - torch.square(alpha_t))
         mean = alpha_t * x
         # variance = (1. - torch.exp(-2. * (T - t))) / torch.exp(-2. * (T - t))
         # mean = torch.exp((T - t)) * x
@@ -228,7 +253,7 @@ class  ScoreEstimator(nn.Module):
         idx = torch.multinomial(weights.T, n_chains).T
         return torch.gather(z, 0, idx.unsqueeze(-1).expand((-1, -1, z.shape[-1]))).view((-1, z.shape[-1]))
     
-    def score_estimation(self, x, alpha_t, variance, target_log_prob, target_log_prob_and_grad, step_size, n_is_samples,
+    def score_estimation(self, x, alpha_t, target_log_prob, target_log_prob_and_grad, step_size, n_is_samples,
                         n_mcmc_steps, n_chains, warmup_fraction=0.5):
         """Estimate the score of RDMC using IS followed by MCMC
 
@@ -249,19 +274,19 @@ class  ScoreEstimator(nn.Module):
         """
 
         # Sample the importance distribution associated to the posterior
-        y_langevin_start = self.posterior_importance_sampling(n_chains, x, alpha_t, variance, target_log_prob, n_is_samples)
+        y_langevin_start = self.posterior_importance_sampling(n_chains, x, alpha_t, target_log_prob, n_is_samples)
         # Run Langevin on the posterior from the IS warm-start
         x_reshaped = x.unsqueeze(0).repeat((n_chains, 1, 1)).view((-1, x.shape[-1]))
         # print(y_langevin_start.size(), x_reshaped.size())
         def current_posterior_log_prob_and_grad(y): return self.posterior_log_prob_and_grad( y, x_reshaped,
-                                                                                    alpha_t, variance, target_log_prob_and_grad)
+                                                                                    alpha_t, target_log_prob_and_grad)
         
         ys_langevin, step_size = mala_mcmc(y_langevin_start, step_size, current_posterior_log_prob_and_grad,
                                         n_mcmc_steps, per_chain_step_size=True, return_intermediates=True)
         ys_langevin = ys_langevin[-int(warmup_fraction * n_mcmc_steps):]
         ys_langevin = ys_langevin.view((int(warmup_fraction * n_mcmc_steps) * n_chains, -1, x.shape[-1]))
         # Compute the approximate score
-        return - alpha_t * (x - alpha_t * ys_langevin.mean(dim=0)) / variance, step_size
+        return -(x - alpha_t * ys_langevin.mean(dim=0)) / (1. - torch.square(alpha_t)), step_size
 
 
 class ReverseDiffusionModel:
@@ -270,10 +295,10 @@ class ReverseDiffusionModel:
         self.diffusion = diffusion
         self.cfg = cfg
     
-    def __call__(self, xt, y, alpha_t, variance):
+    def __call__(self, xt, y, alpha_t):
         # Returns both the noise value (score function scaled) and the predicted x0.
         # alpha_t = self.diffusion.alpha(t).view(-1, 1)
-        et = self.model(xt, y, alpha_t, variance)
-        x0_pred = (xt - et * (1 - alpha_t).sqrt()) / variance
+        et = self.model(xt, y, alpha_t)
+        x0_pred = (xt - et * (1 - alpha_t).sqrt()) / alpha_t.sqrt()
         return et, x0_pred
 
