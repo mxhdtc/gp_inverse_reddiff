@@ -1,0 +1,67 @@
+{
+  "original_checkpoint": "/home/xim22003/Diffusion_CLM/reddiff-gp-demo/data/models/dkl_gp_models_res-scale-log-V9.pth",
+  "split_files": [
+    "NUM_TASKS.pth",
+    "NUM_LATENTS.pth",
+    "INPUT_DIM.pth",
+    "inducing_points_P.pth",
+    "inducing_points_Q.pth",
+    "model_P_state_dict_part1.pth",
+    "model_P_state_dict_part2.pth",
+    "likelihood_P_state_dict_part1.pth",
+    "likelihood_P_state_dict_part2.pth",
+    "model_Q_state_dict_part1.pth",
+    "model_Q_state_dict_part2.pth",
+    "likelihood_Q_state_dict_part1.pth",
+    "likelihood_Q_state_dict_part2.pth",
+    "feature_encoder_P_state_dict_part1.pth",
+    "feature_encoder_P_state_dict_part2.pth",
+    "feature_encoder_Q_state_dict_part1.pth",
+    "feature_encoder_Q_state_dict_part2.pth",
+    "metadata.pth"
+  ],
+  "keys": [
+    "model_P_state_dict",
+    "likelihood_P_state_dict",
+    "model_Q_state_dict",
+    "likelihood_Q_state_dict",
+    "feature_encoder_P_state_dict",
+    "feature_encoder_Q_state_dict",
+    "NUM_TASKS",
+    "NUM_LATENTS",
+    "INPUT_DIM",
+    "inducing_points_P",
+    "inducing_points_Q"
+  ],
+  "metadata_keys": [
+    "NUM_TASKS",
+    "NUM_LATENTS",
+    "INPUT_DIM"
+  ],
+  "state_dict_parts": {
+    "model_P_state_dict": [
+      "model_P_state_dict_part1",
+      "model_P_state_dict_part2"
+    ],
+    "likelihood_P_state_dict": [
+      "likelihood_P_state_dict_part1",
+      "likelihood_P_state_dict_part2"
+    ],
+    "model_Q_state_dict": [
+      "model_Q_state_dict_part1",
+      "model_Q_state_dict_part2"
+    ],
+    "likelihood_Q_state_dict": [
+      "likelihood_Q_state_dict_part1",
+      "likelihood_Q_state_dict_part2"
+    ],
+    "feature_encoder_P_state_dict": [
+      "feature_encoder_P_state_dict_part1",
+      "feature_encoder_P_state_dict_part2"
+    ],
+    "feature_encoder_Q_state_dict": [
+      "feature_encoder_Q_state_dict_part1",
+      "feature_encoder_Q_state_dict_part2"
+    ]
+  }
+}
