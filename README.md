@@ -32,7 +32,9 @@ Please cite the original PSML paper when using this dataset:
 > X. Zheng, N. Xu, L. Trinh, D. Wu, T. Huang, S. Sivaranjani, Y. Liu, and L. Xie, “PSML: A Multi-scale Time-series Dataset with Benchmark for Machine Learning in Decarbonized Energy Grids,” *arXiv preprint arXiv:2110.06324*, 2021.
 
 
-![solarPV](solar_pv_model.png)
+<!-- ![solarPV](solar_pv_model.png) -->
+![solarPV](solar_pv_diagram.png)
+
 
 ## Comparision with MAP and HMC
 We compare our method with Maximum a Posteriori (MAP) and Hamiltonian Monte Carlo (HMC). The following table shows parameter estimation results for selected parameters (Sobol indices). Ground truth values and estimates from DSM-VI (DIFF\_REG), MAP, and HMC methods, along with absolute relative errors:
@@ -93,15 +95,37 @@ torchrun --standalone --nproc_per_node=3 scripts/run_demo_parallel.py --config-n
 ## Run with experimental configuration
 
 ### Distributed run with multiple GPUs
-```
+<!-- ```
 torchrun --standalone --nproc_per_node=3 scripts/run_demo_parallel_exp.py --config-name=ddrmpp algo=reddiff_vvgp_exp algo.repeat=1 algo.obs_weight=1.0 dataset.index=9 dataset.list=True algo.batch_size=10 algo.projection=False algo.moving_delay=False algo.truncate=False algo.grad_term_weight=1.5
+``` -->
+```
+torchrun --standalone --nproc_per_node=3 scripts/run_demo_parallel_exp.py --config-name=ddrmpp algo=reddiff_vvgp algo.repeat=1 algo.obs_weight=1.0 dataset.index=9 dataset.list=True algo.batch_size=1 algo.truncate=False algo.grad_term_weight=.25
 ```
 ### Run with single device
 ```
 python scripts/run_demo_exp.py --config-name=ddrmpp algo=reddiff_vvgp_exp algo.repeat=1 algo.obs_weight=1.0 dataset.index=0 dataset.list=False  algo.projection=False  
 ```
+### Hyperparameter Tuning
 
+We provide scripts for hyperparameter tuning focusing on `delay_schedule`. The optimization steps are fixed at 1000, and `num_diffusion_timesteps` and `exp.start_step` are set to `1000 + delay_schedule`.
 
+**Configuration files:**
+- `configs/tuning.yaml`: Base configuration for sequential tuning
+- `configs/tuning_parallel.yaml`: Configuration for distributed tuning with list of `delay_schedules`
+
+**Sequential tuning (single GPU):**
+```bash
+python scripts/run_tuning.py --index=0 --delay_schedule_list=200,300,500 --config-name=tuning --script=run_demo.py --gpu=0
+```
+
+**Distributed tuning (aligned with existing project logic):**
+Uses `torch.distributed` with each rank picking a different `delay_schedule` from the config list.
+```bash
+torchrun --standalone --nproc_per_node=3 scripts/run_tuning_distributed.py --config-name=tuning_parallel dataset.index=2
+```
+The `tuning_parallel.yaml` config contains `delay_schedules: [200, 300, 500]`. Each rank will use one value from this list.
+
+Additional Hydra overrides can be passed via command line.
 <!-- ```
 python run_reddiff_gp.py --config-name=gp_run algo.repeat=1 algo.obs_weight=0.0 dataset.index=0 dataset.list=False
 ```
