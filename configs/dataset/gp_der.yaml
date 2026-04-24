@@ -3,5 +3,6 @@
 root: "${hydra:runtime.cwd}/data/datasets"
 name: "res-scale-log-V9"
 index: 0
-list: True
-columns: [3, 8, 9, 12]
+list: False
+# columns: [3, 8, 9, 12]
+columns: [9, 12,  3,  5,  1,  8]

@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Hydra / Experiment outputs
+outputs/
+
+# Data and models (large files - handled separately)
+data/models/
+data/ckpt/
+
+# Backups
+*.backup
+
+# Generated results
+*.csv
+*.txt
+*.png
+*.pdf
+*.tex
+!requirements.txt
+!LICENSE
+
+# OS
+.DS_Store

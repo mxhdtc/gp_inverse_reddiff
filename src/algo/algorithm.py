@@ -45,16 +45,16 @@ class REDDIFF(DDIM):
         self.columns = cfg.dataset.columns
         self.sigma_x0 = cfg.algo.sigma_x0
         self.decay_rate = getattr(cfg.algo, 'decay_rate', 0.9)
-        self.projection = getattr(cfg.algo, 'projection', False)
-        self.moving_delay = getattr(cfg.algo, 'moving_delay', False)
+        # self.projection = getattr(cfg.algo, 'projection', False)
+        # self.moving_delay = getattr(cfg.algo, 'moving_delay', False)
         self.truncate = getattr(cfg.algo, 'truncate', False)
         
         print('self.lr', self.lr)
         print('self.sigma_x0', self.sigma_x0)
         print('self.denoise_term_weight', cfg.algo.denoise_term_weight)
         print('self.batch_size', cfg.algo.batch_size)
-        print('self.projection', cfg.algo.projection)
-        print('self.moving_delay', cfg.algo.moving_delay)
+        # print('self.projection', cfg.algo.projection)
+        # print('self.moving_delay', cfg.algo.moving_delay)
         print('self.truncate', cfg.algo.truncate)
 
 
@@ -107,6 +107,8 @@ class REDDIFF(DDIM):
         else:
             print('self.optim SGD')
             optimizer = torch.optim.SGD([mu], lr=self.lr)   #original: 0.999
+        
+        # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = 1000, eta_min=0.1)
 
         total_steps = len(ts)
         mu_list = []
@@ -134,6 +136,7 @@ class REDDIFF(DDIM):
                 xt = alpha_t.sqrt() * x0_pred + (1 - alpha_t).sqrt() * noise_xt # Sampling the diffusion without time shift
                 y = y.to(device)
                 variance = (alpha_delta + alpha_t - 2.0 * alpha_s) / (alpha_delta)
+                variance = torch.clip(variance, min=0.1)
                 et, x0_hat = self.model(xt, y, alpha_t, variance)
 
                 # Clip the estimated score
@@ -166,7 +169,7 @@ class REDDIFF(DDIM):
                 elif self.denoise_term_weight == "log":
                     snr_inv = torch.log(snr_inv + 1.0)
                 elif self.denoise_term_weight == "trunc_linear":
-                    snr_inv = torch.clip(snr_inv, max=1.0)
+                    snr_inv = torch.clip(snr_inv, max=10.0, min=0.1)
                 elif self.denoise_term_weight == "power2over3":
                     snr_inv = torch.pow(snr_inv, 2/3)
                 elif self.denoise_term_weight == "const":
@@ -192,7 +195,9 @@ class REDDIFF(DDIM):
                 true_x = true_x.to(device)
                 e_gp = torch.cat(self.forward_model(true_x), dim=-1) - torch.cat(self.forward_model(mu), dim=-1)
                 gp_rmse = torch.mean(e_gp.square(), dim=1).sqrt().mean().item()
-                progress_bar.set_description(f"{kwargs['idx']}:RED-diff sampling (obs_loss={loss_obs_scalar:.6f})(mse = {mse:.6f})(SNR_INV = {snr_inv.item():.6f})(gp_loss={gp_rmse:.6f})")
+                # progress_bar.set_description(f"{kwargs['idx']}:RED-diff sampling (obs_loss={loss_obs_scalar:.6f})(mse = {mse:.6f})(SNR_INV = {snr_inv.item():.6f})(gp_loss={gp_rmse:.6f})")
+                progress_bar.set_description(f"rank:{rank}:RED-diff sampling (obs_loss={loss_obs_scalar:.6f})(mse = {mse:.6f})(SNR_INV = {snr_inv.item():.6f})(gp_loss={gp_rmse:.6f})")
+
 
 
                 #adam step

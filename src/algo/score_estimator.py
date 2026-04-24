@@ -42,7 +42,8 @@ def ula_mcmc(x0, step_size, score, n_steps, n_warmup_steps=0, return_intermediat
         if return_intermediates_gradients:
             grad_xs = torch.empty_like(xs)
     for i in range(n_warmup_steps+n_steps):
-        grad_x = score(x)
+        log_prob_x, grad_x = score(x)
+        # grad_x = score(x)
         x += step_size * grad_x + torch.sqrt(2. * step_size) * torch.randn_like(x)
         if return_intermediates and (i >= n_warmup_steps):
             xs[i - n_warmup_steps] = x.clone()
@@ -87,10 +88,10 @@ def mala_mcmc(
     Returns:
         x (torch.Tensor of shape (batch_size, *data_shape)): Final sample of the Langevin chain
     """
-
     sum_indexes = (1,) * (len(x0.shape) - 1)
     x = x0
     log_prob_x, grad_x = log_prob_and_grad(x)
+
     if return_intermediates:
         xs = torch.empty((n_steps, *x.shape), device=x.device)
         if return_intermediates_gradients:
@@ -107,21 +108,31 @@ def mala_mcmc(
         )
         # Compute log-densities at the proposal
         log_prob_x_prop, grad_x_prop = log_prob_and_grad(x_prop)
+
+        # log_prob_x, grad_x = log_prob_and_grad(x)
+
         # Compute the MH ratio
         with torch.no_grad():
-            joint_prop = log_prob_x_prop - \
+            joint_prop = log_prob_x_prop.squeeze(1) - \
                 log_prob_multivariate_normal_diag(
                     x_prop,
                     mean=x + step_size * grad_x,
                     variance=2.0 * step_size,
                     sum_indexes=sum_indexes)
-            joint_orig = log_prob_x - log_prob_multivariate_normal_diag(x,
+            joint_orig = log_prob_x.squeeze(1) - log_prob_multivariate_normal_diag(x,
                                                                         mean=x_prop + step_size * grad_x_prop,
                                                                         variance=2.0 * step_size,
                                                                         sum_indexes=sum_indexes)
+        # print(x.shape, log_prob_x_prop.shape, 
+        #       log_prob_multivariate_normal_diag(
+        #             x_prop,
+        #             mean=x + step_size * grad_x,
+        #             variance=2.0 * step_size,
+        #             sum_indexes=sum_indexes).shape,joint_prop.shape)
+        
         # Acceptance step
         log_acc = joint_prop - joint_orig
-        mask = torch.log(torch.rand_like(log_prob_x_prop, device=x.device)) < log_acc
+        mask = torch.log(torch.rand_like(log_prob_x_prop.squeeze(1), device=x.device)) < log_acc
         x.data[mask] = x_prop[mask]
         log_prob_x.data[mask] = log_prob_x_prop[mask]
         grad_x.data[mask] = grad_x_prop[mask]
@@ -186,6 +197,11 @@ class  ScoreEstimator(nn.Module):
         # Evaluate the target
         target_log_prob, target_grad = target_log_prob_and_grad(y)
 
+        # print(f"target_log_prob.shape: {target_log_prob.shape}")                                                                                                                             
+        # print(f"alpha_t.shape: {alpha_t.shape}")                                                                                                                                             
+        # print(f"y.shape: {y.shape}, xt.shape: {xt.shape}")                                                                                                                                   
+        # print(f"variance.shape: {variance.shape}") 
+
         # Compute the log_prob
         log_prob = target_log_prob
         log_prob -= 0.5 * torch.sum(torch.square(xt - alpha_t * y), dim=-1, keepdim=True) / variance 
@@ -193,6 +209,9 @@ class  ScoreEstimator(nn.Module):
         grad = target_grad
         grad += alpha_t * (xt - alpha_t * y) / variance
         # Return everything
+
+        # print(f"log_prob.shape: {log_prob.shape}")                                                                                                                             
+        # print(f"grad.shape: {grad.shape}")  
         return log_prob, grad
     
     def posterior_importance_sampling(self, n_chains, x, alpha_t, variance, target_log_prob, n_mc_samples=128):
@@ -212,16 +231,18 @@ class  ScoreEstimator(nn.Module):
 
         # Compute the variance and the mean
         # variance = (1. - torch.square(alpha_t))
-        mean = alpha_t * x
+        # mean = alpha_t * x
+        mean = x / alpha_t
         # variance = (1. - torch.exp(-2. * (T - t))) / torch.exp(-2. * (T - t))
         # mean = torch.exp((T - t)) * x
         # Generate particles
-        z = torch.sqrt(variance) * torch.randn((n_mc_samples, *x.shape), device=x.device)
+        # z = torch.sqrt(variance ) * torch.randn((n_mc_samples, *x.shape), device=x.device)
+        z = torch.sqrt(variance /(alpha_t**2) ) * torch.randn((n_mc_samples, *x.shape), device=x.device)
         z += mean.unsqueeze(0)
         # Compute the importance weights
         log_weight = target_log_prob(z.view((-1, *x.shape[1:]))).view((n_mc_samples, -1))
         diff = z - mean.unsqueeze(0)
-        proposal_log_prob = -0.5 * torch.sum(torch.square(diff.view((-1, *x.shape[1:]))), dim=-1) / variance
+        proposal_log_prob = -0.5 * torch.sum(torch.square(diff.view((-1, *x.shape[1:]))), dim=-1) / (variance / alpha_t)
         log_weight -= proposal_log_prob.view((n_mc_samples, -1))
         weights = torch.nn.functional.softmax(log_weight, dim=0)
         # Sample the importance weights
@@ -258,10 +279,14 @@ class  ScoreEstimator(nn.Module):
         
         ys_langevin, step_size = mala_mcmc(y_langevin_start, step_size, current_posterior_log_prob_and_grad,
                                         n_mcmc_steps, per_chain_step_size=True, return_intermediates=True)
+        # ys_langevin, step_size = ula_mcmc(y_langevin_start, step_size, current_posterior_log_prob_and_grad, n_mcmc_steps, n_warmup_steps=0, return_intermediates=False,
+            #  return_intermediates_gradients=False), None
         ys_langevin = ys_langevin[-int(warmup_fraction * n_mcmc_steps):]
         ys_langevin = ys_langevin.view((int(warmup_fraction * n_mcmc_steps) * n_chains, -1, x.shape[-1]))
         # Compute the approximate score
-        return - alpha_t * (x - alpha_t * ys_langevin.mean(dim=0)) / variance, step_size
+        return -  (x - alpha_t * ys_langevin.mean(dim=0)) / variance, step_size
+
+        # return - alpha_t * (x - alpha_t * ys_langevin.mean(dim=0)) / variance, step_size
 
 
 class ReverseDiffusionModel:

@@ -61,20 +61,32 @@ class ADAM(DDIM):
             y (torch.Tensor): Observed trajectory
             ts (torch.Tensor): Time steps
         """
+        rank = int(os.environ["LOCAL_RANK"]) if kwargs.get('rank') else 0
+        world_size = kwargs.get('world_size', 0)
+        torch.cuda.set_device(rank)
+        device = torch.device("cuda", rank)
         n = x.size(0)
-        true_x = x.clone()
-        x = self.initialize(x, ts)
-        ss = [-1] + list(ts[:-1])
-        factor = 1-1e-8
+        # Convert ts to tensor on device if not already
+        if not isinstance(ts, torch.Tensor):
+            ts = torch.tensor(ts, device=device)
+        else:
+            ts = ts.to(device)
+        true_x = x.clone().to(device)
+        x = self.initialize(x, ts).to(device)
+        ss = torch.cat([torch.tensor([-1], device=device), ts[:-1]])
         delay_steps = self.cfg.algo.delay_schedule
+        self.diffusion.alphas = self.diffusion.alphas.to(device)
+        # Move models to device once
+        self.forward_model = self.forward_model.to(device)
+        # if self.model:
+            # self.model = self.model.to(device)
         if delay_steps == 0:
-            ss = list(ts)
-            scale = 1.0
+            ss = ts.clone()
         else:
             ts, ss = ts[:-delay_steps], ts[delay_steps:]
-            delta_t = torch.ones(n).to(x.device).long() * delay_steps
-            scale = self.diffusion.alpha(delta_t).view(-1, 1).sqrt()
-            ts, ss = torch.repeat_interleave(torch.tensor(ts), self.cfg.algo.repeat), torch.repeat_interleave(torch.tensor(ss), self.cfg.algo.repeat)
+            delta_t = torch.ones(n, device=device).long() * delay_steps
+            ts = torch.repeat_interleave(ts, self.cfg.algo.repeat)
+            ss = torch.repeat_interleave(ss, self.cfg.algo.repeat)
 
         #optimizer
         mu = torch.autograd.Variable(x, requires_grad=True)
@@ -87,16 +99,18 @@ class ADAM(DDIM):
         mu_list = []
         mse_results = []
         rmse_results = []
-        with tqdm(zip(reversed(ts), reversed(ss)), total=total_steps, desc="RED-diff sampling") as progress_bar:
+        y = y.to(device)
+        with tqdm(zip(reversed(ts), reversed(ss)), position=rank, total=total_steps, desc="RED-diff sampling") as progress_bar:
             for step_idx, (ti, si) in enumerate(progress_bar):
-                t = torch.ones(n).to(x.device).long() * ti
+                t = torch.ones(n, device=device).long() * ti
+
                 alpha_t = self.diffusion.alpha(t).view(-1, 1)
-                alpha_t = alpha_t[0] #1d torch tensor
+                alpha_t = alpha_t[0].to(device) #1d torch tensor
                 sigma_x0 = self.sigma_x0
 
-                noise_x0 = torch.randn_like(mu)
-                x0_pred = mu + sigma_x0*noise_x0
+                noise_x0 = torch.randn_like(mu, device=device)
 
+                x0_pred = mu + sigma_x0*noise_x0
                 e_obs = y - torch.cat(self.forward_model(x0_pred), dim=-1)
                 loss_obs = (e_obs**2).mean()/2
 
@@ -108,8 +122,8 @@ class ADAM(DDIM):
                 e_gp = torch.cat(self.forward_model(true_x), dim=-1) - torch.cat(self.forward_model(mu), dim=-1)
                 gp_rmse = torch.mean(e_gp.square(), dim=1).sqrt().mean().item()
 
-                mse = torch.mean((mu.cpu()[:, self.columns] - true_x.cpu()[:, self.columns]) ** 2, dim=1).item()
-                progress_bar.set_description(f"RED-diff sampling (obs_loss={loss_obs_scalar:.6f})(mse = {mse:.6f})(gp_loss={gp_rmse:.6f})")
+                mse = torch.mean((mu[:, self.columns] - true_x[:, self.columns]) ** 2, dim=1).item()
+                progress_bar.set_description(f"{kwargs['idx']}:RED-diff sampling(obs_loss={loss_obs_scalar:.6f})(mse = {mse:.6f})(gp_loss={gp_rmse:.6f})")
 
                 #adam step
                 optimizer.zero_grad()
@@ -117,7 +131,7 @@ class ADAM(DDIM):
                 optimizer.step()
 
                 #Save testing results
-                mu_list.append(mu.cpu().detach().numpy())
+                mu_list.append(mu.detach().cpu().numpy())
                 mse_results.append(mse)
                 rmse_results.append(loss_obs_scalar)
 
@@ -129,7 +143,9 @@ class ADAM(DDIM):
         return x_0
 
     def plot_weight_den(self, ts, **kwargs):
-        alpha = self.diffusion.alpha(torch.tensor(ts).cuda())
+        # Use the same device as diffusion alphas
+        device = self.diffusion.alphas.device
+        alpha = self.diffusion.alpha(torch.tensor(ts, device=device))
 
         snr_inv = (1-alpha).sqrt()/alpha.sqrt()
         snr_inv = snr_inv.detach().cpu().numpy()
