@@ -190,11 +190,11 @@ The `tuning_parallel.yaml` config contains `delay_schedules: [200, 300, 500]`. E
 If you use this code in your research, please cite:
 
 ```bibtex
-@article{your-paper-citation,
-  title={Parameter Estimation for Dynamic Model in Power System Using Diffusion Score Matching Variational Inference},
-  author={},
-  journal={},
-  year={}
+@article{ma2026parameter,
+  title={Bayesian Parameter Estimation for Dynamic Inverter-based Resource Models using Diffusion Score Matching Variational Inference},
+  author={Ma, Xiaohang and Tan, Bendong and Jang, Sunho and Yue, Meng},
+  journal={Submitted to PMAPS 2026},
+  year={2026}
 }
 ```
 
